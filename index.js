@@ -9,8 +9,8 @@ app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser());
 app.use(express.json());
 
-const articles = new mongoose.model('articles',{ title : String, username : String, description : String});
-const users = new mongoose.model('users',{ username : String, email : String, password : String });
+const articles2 = new mongoose.model('articles2',{ title : String, username : String, description : String});
+const users = new mongoose.model('users',{ username : String, email : String, password : String, role : String });
 
 app.get('/',(req,res)=>{
     res.send('Welcome to homepage!');
@@ -24,7 +24,8 @@ app.post('/register', async(req,res)=>{
     const user = new users({
         username : req.body.username,
         email : req.body.email,
-        password : req.body.password
+        password : req.body.password,
+        role : req.body.role
     })
     try{
         const new_user = await user.save();
@@ -43,12 +44,13 @@ app.post('/login',async (req,res) => {
     if(user){
         const token = jwt.sign({ username : user.username },"my_secret_key");
         user.token = token;
-        // console.log(token);
-        res.status(200).cookie("token",token,{ maxAge : 500 * 1000, httpOnly : true }).json(
-            { 
-                user,
-                message : 'Logged In!' 
-            });
+        console.log(token);
+        if(user.role == 'admin'){
+            res.status(200).cookie("token",token,{ maxAge : 500 * 1000, httpOnly : true }).redirect('/admin-panel');
+        }
+        else{
+            res.status(200).cookie("token",token,{ maxAge : 500 * 1000, httpOnly : true }).redirect('/my-articles');
+        }
     }else{
         res.status(400).send("Invalid Credentials");
     }
@@ -71,10 +73,32 @@ function verifyToken(req,res,next){
     next();
 }
 
+// Admin Panel ----------------
+
+app.get('/admin-panel',verifyToken,async(req,res) => {
+    const role = req.user.role;
+    console.log(role);
+    if(role == 'admin'){
+        res.redirect('/admin-panel');
+    }
+    else{
+        res.send('Forbidden!');
+    }
+    const user = await users.find({}, {_id : 0,password :0});
+    res.status(200).json({
+        user : user
+    })
+    // user.forEach(element => {
+    //     (` Author : ${element.username}  , Email : ${element.email} , Role : ${element.role}`);
+    //   });
+})
+
+
 // ----------- Article Routes ---------
+
 // Get All Articles
 app.get('/all-articles',verifyToken,async(req,res)=>{
-    const article = await articles.find({}, { _id : 0 });  // db.student.find({}, {_id:0})
+    const article = await articles2.find({}, { _id : 0 });  // db.student.find({}, {_id:0})
     res.status(200).json({ 
         article : article
     });
@@ -82,7 +106,7 @@ app.get('/all-articles',verifyToken,async(req,res)=>{
 
 // Add new Article
 app.post('/articles/new', verifyToken, async(req,res) => {
-    let new_article = new articles({
+    let new_article = new articles2({
         title : req.body.title,
         username : req.user.username,
         description : req.body.description
@@ -100,7 +124,7 @@ app.post('/articles/new', verifyToken, async(req,res) => {
 // Delete Article
 app.get('/articles/delete',verifyToken,async(req,res)=>{
     const post_id = req.body.post_id;
-    const article = await articles.findById(post_id);
+    const article = await articles2.findById(post_id);
     if(article.username === req.user.username){
         try{
             await article.delete();
@@ -122,10 +146,10 @@ app.get('/articles/delete',verifyToken,async(req,res)=>{
 // Update Article
 app.get('/articles/update',verifyToken,async(req,res)=>{
     const post_id = req.body.post_id;
-    const article = await articles.findById(post_id);
+    const article = await articles2.findById(post_id);
     if(article.username === req.user.username){
         try{
-            const new_article = await articles.findByIdAndUpdate(post_id,{ 
+            const new_article = await articles2.findByIdAndUpdate(post_id,{ 
                 title : req.body.title,
                 username : req.user.username,
                 description : req.body.description
@@ -149,7 +173,7 @@ app.get('/articles/update',verifyToken,async(req,res)=>{
 // Get My Articles
 app.get('/my-articles',verifyToken,async(req,res) => {
     const username  = req.user.username;
-    const article = await articles.find({ username });
+    const article = await articles2.find({ username });
     res.json({
         article : article
     })
@@ -158,7 +182,7 @@ app.get('/my-articles',verifyToken,async(req,res) => {
 
 app.listen(3000,()=>{
     try{
-        mongoose.connect('mongodb+srv://itzpkhere:itz_pk_here@nodetuts.epwi7.mongodb.net/blogdb?retryWrites=true&w=majority');
+        mongoose.connect('mongodb+srv://itzpkhere:itz_pk_here@nodetuts.epwi7.mongodb.net/blogdb2?retryWrites=true&w=majority');
     }catch(err){
         console.log(err);
     }
