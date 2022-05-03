@@ -97,7 +97,7 @@ app.get('/admin-panel',verifyToken,async(req,res) => {
 // ----------- Article Routes ---------
 
 // Get All Articles
-app.get('/all-articles',verifyToken,async(req,res)=>{
+app.get('/all-articles',async(req,res)=>{
     const article = await articles2.find({}, { _id : 0 });  // db.student.find({}, {_id:0})
     res.status(200).json({ 
         article : article
